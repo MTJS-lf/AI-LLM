@@ -28,125 +28,11 @@ import sys
 sys.path.append('..')
 from src.models.chatglm3.modeling_chatglm import ChatGLMForConditionalGeneration
 from src.datasets.chat_dataset import SupervisedChatDataset
-from src.sample_generator import (
-    batch_grouped_sft_generate,
-    generate_and_tokenize_prompt,
-)
+from src.utils.arguments import ModelArguments, DataArguments, TrainingArguments
 
 from transformers import Trainer
 
 logger = logging.getLogger(__name__)
-
-@dataclass
-class ModelArguments:
-    """
-    Arguments pertaining to which model/config/tokenizer we are going to fine-tune, or train from scratch.
-    """
-
-    model_name_or_path: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "The model checkpoint for weights initialization.Don't set if you want to train a model from scratch."
-            )
-        },
-    )
-    cache_dir: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "Where do you want to store the pretrained models downloaded from huggingface.co"
-        },
-    )
-    torch_dtype: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": (
-                "Override the default `torch.dtype` and load the model under this dtype. If `auto` is passed, the "
-                "dtype will be automatically derived from the model's weights."
-            ),
-            "choices": ["auto", "bfloat16", "float16", "float32"],
-        },
-    )
-    use_flash_attention: bool = field(
-        default=False, metadata={"help": ("Whether to use memory efficient attention.")}
-    )
-    llama: bool = field(default=False, metadata={"help": "Llama model"})
-    glm3: bool = field(default=False, metadata={"help": "Glm3 model"})
-
-
-@dataclass
-class DataArguments:
-    """
-    Arguments pertaining to what data we are going to input our model for training and eval.
-    """
-
-    train_file: Optional[str] = field(
-        default=None, metadata={"help": "The input training data file (a text file)."}
-    )
-    validation_file: Optional[str] = field(
-        default=None,
-        metadata={
-            "help": "An optional input evaluation data file to evaluate the perplexity on (a text file)."
-        },
-    )
-
-
-@dataclass
-@add_start_docstrings(TrainingArguments.__doc__)
-class TrainingArguments(TrainingArguments):
-    model_max_length: int = field(
-        default=512,
-        metadata={"help": "Maximum sequence length."},
-    )
-    use_lora: bool = field(default=False, metadata={"help": "Whether to use LoRA."})
-    use_int8_training: bool = field(
-        default=False, metadata={"help": "Whether to use int8 training."}
-    )
-    lora_config: Optional[str] = field(
-        default=None,
-        metadata={"help": "LoRA config file."},
-    )
-    ddp_find_unused_parameters: bool = field(
-        default=False, metadata={"help": "ddp_find_unused_parameters"}
-    )
-    gradient_checkpointing: bool = field(
-        default=False, metadata={"help": "gradient_checkpointing"}
-    )
-    # https://discuss.huggingface.co/t/wandb-does-not-display-train-eval-loss-except-for-last-one/9170
-    evaluation_strategy: str = field(
-        default="steps", metadata={"help": "The evaluation strategy to use."}
-    )
-    save_total_limit: Optional[int] = field(
-        default=3,
-        metadata={
-            "help": (
-                "If a value is passed, will limit the total amount of checkpoints. Deletes the older checkpoints in"
-                " `output_dir`. When `load_best_model_at_end` is enabled, the 'best' checkpoint according to"
-                " `metric_for_best_model` will always be retained in addition to the most recent ones. For example,"
-                " for `save_total_limit=5` and `load_best_model_at_end=True`, the four last checkpoints will always be"
-                " retained alongside the best model. When `save_total_limit=1` and `load_best_model_at_end=True`,"
-                " it is possible that two checkpoints are saved: the last one and the best one (if they are different)."
-                " Default is unlimited checkpoints"
-            )
-        },
-    )
-    report_to: str = field(
-        default="wandb",
-        metadata={
-            "help": "The list of integrations to report the results and logs to."
-        },
-    )
-    deepspeed: str = field(
-        default=None,
-        metadata={
-            "help": (
-                "Enable deepspeed and pass the path to deepspeed json config file (e.g. `ds_config.json`) or an already"
-                " loaded json file as a dict"
-            )
-        },
-    )
-    do_train: bool = field(default=True, metadata={"help": "Whether to run training."})
-
 
 def print_rank_0(msg, log_file, rank=0):
     if rank <= 0:
@@ -231,7 +117,7 @@ def main():
             torch_dtype=torch_dtype,
         )
     else:
-        if model_args.glm3:
+        if model_args.model_type == "glm3":
             model = ChatGLMForConditionalGeneration.from_pretrained(
                 model_args.model_name_or_path,
                 torch_dtype=torch_dtype,
@@ -308,13 +194,11 @@ def main():
     # model.is_parallelizable = True
     # model.model_parallel = True
 
-    assert os.path.exists(data_args.train_file), "{} file not exists".format(
-        data_args.train_file
-    )
+    assert os.path.exists(data_args.train_path), "{} file not exists".format(data_args.train_path)
 
     with torch_distributed_zero_first(global_rank):
-        train_data = SupervisedChatDataset(data_args.train_file, tokenizer)
-        val_data = SupervisedChatDataset(data_args.validation_file, tokenizer)
+        train_data = SupervisedChatDataset(data_args.train_path, tokenizer)
+        val_data = SupervisedChatDataset(data_args.eval_path, tokenizer)
 
     for i in range(2):
         print_rank_0(

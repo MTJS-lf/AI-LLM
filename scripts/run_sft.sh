@@ -14,10 +14,10 @@ cutoff_len=1024
  torchrun --nproc_per_node 1 sft_train.py \
      --ddp_timeout 36000 \
      --model_name_or_path ${model_name_or_path} \
-     --glm3 \
+     --model_type glm3 \
      --deepspeed configs/deepspeed_config.json \
-     --train_file ${train_file} \
-     --validation_file ${validation_file} \
+     --train_path ${train_file} \
+     --eval_path ${validation_file} \
      --per_device_train_batch_size 2 \
      --per_device_eval_batch_size 2 \
      --gradient_accumulation_steps 4 \
@@ -38,7 +38,8 @@ cutoff_len=1024
      --overwrite_output_dir \
      --output_dir ${output_dir} \
      --use_lora \
-     --lora_config model_configs/glm_lora_config.json
+     --lora_config model_configs/glm_lora_config.json \
+     --report_to "tensorboard"
     # --use_flash_attention
     # --resume_from_checkpoint ...
 
