@@ -3,7 +3,7 @@ import os
 import json
 import argparse
 
-def process(content):
+def process_chat(content):
     content_json = json.loads(content)
     #system_message = {"role": "system", "content": content_json.get("instruction", "")}
     conv_messages = []
@@ -22,18 +22,46 @@ def process(content):
     messages = {"conversations": conv_messages}
     return messages
 
+def process_encode(content):
+    content_json = json.loads(content)
+    #system_message = {"role": "system", "content": content_json.get("instruction", "")}
+    instruction = content_json.get("instruction", "")
+    query = instruction
+    content = "" 
+    for instance in content_json.get("instances", []):
+        content = instance.get("input", "")
+        user_content = instruction + "," + content
+        if instruction == "":
+            user_content = content
+        if content == "":
+            user_content = instruction
+        content = instance.get("output", "")
+        break
+    messages = {"query": query, "pos": [content]}
+    return messages
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--input_file', type=str, help="convert file")
     parser.add_argument('--output_path', default="train_message.json", type=str, help="save path")
+    parser.add_argument('--type', default="chat", type=str, help="data type")
     args = parser.parse_args()
-    messages = []
-    with open(args.input_file , 'r') as fp:
-        for line in fp:
-            message = process(line)
-            print(message)
-            messages.append(message)
-    with open(args.output_path, 'w', encoding='utf-8') as fw:
-        json.dump(messages, fw, ensure_ascii=False)
-        
+    if args.type == "emb":
+        fw = open(args.output_path, 'w', encoding='utf-8') 
+        with open(args.input_file , 'r') as fp:
+            for line in fp:
+                message = process_encode(line)
+                print(message)
+                fw.write(json.dumps(message, ensure_ascii=False))
+                fw.write("\n")
+        fw.close()
+    else:
+        messages = []
+        with open(args.input_file , 'r') as fp:
+            for line in fp:
+                message = process_chat(line)
+                print(message)
+                messages.append(message)
+        with open(args.output_path, 'w', encoding='utf-8') as fw:
+            json.dump(messages, fw, ensure_ascii=False)
+            
