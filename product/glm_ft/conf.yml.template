@@ -1,0 +1,88 @@
+task_name: general
+model_name: bge
+use_deepspeed: false
+hard_neg_ratio: 0.2
+model_args:
+  model_name_or_path: /mnt/data1/AIModel/AI-ModelScope/bge-large-zh/
+  model_type: None
+  torch_dtype: bfloat16
+  cache_dir: None 
+
+data_args:
+  train_path: ../../data/qa_train.json
+  eval_path: ../../data/train_embedding.json
+  train_group_size: 10
+  query_max_len: 32
+  passage_max_len: 128
+  query_instruction_for_retrieval: None
+  passage_instruction_for_retrieval: None
+
+max_length: 1024
+
+train_args:
+  model_max_length: 512
+  seed: 666
+  use_lora: false
+  evaluation_strategy: "steps"
+  num_train_epochs: 4
+  max_steps: 505
+  save_total_limit: 3
+  logging_steps: 10
+  eval_steps: 20
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 1
+  per_device_eval_batch_size: 2
+  learning_rate: 5.0e-06
+  weight_decay: 0.00001
+  warmup_ratio: 0.05
+  lr_scheduler_type: "linear"
+  dataloader_drop_last: false
+  report_to: tensorboard
+  do_train: true
+  normlized: true 
+  bf16: true
+  fix_position_embedding: false
+  gradient_checkpointing: false
+  sentence_pooling_method: cls
+  negatives_cross_device: false
+  temperature: 1.0
+  use_inbatch_neg: False
+  output_dir: models_new
+  deepspeed:
+    fp16:
+      enabled: auto
+      hysteresis: 2
+      initial_scale_power: 16
+      loss_scale: 0
+      loss_scale_window: 1000
+      min_loss_scale: 1
+    train_micro_batch_size_per_gpu: 5
+    train_batch_size: "auto"
+    gradient_accumulation_steps: 10
+    gradient_clipping: auto
+    optimizer:
+      params:
+        adam_w_mode: true
+        lr: ToBeAdded
+        torch_adam: true
+        weight_decay: auto
+      type: AdamW
+    scheduler:
+      params:
+        total_num_steps: auto
+        warmup_max_lr: auto
+        warmup_min_lr: auto
+        warmup_num_steps: auto
+      type: WarmupDecayLR
+    steps_per_print: 2
+    wall_clock_breakdown: false
+    zero_optimization:
+      allgather_bucket_size: 200000000.0
+      allgather_partitions: true
+      contiguous_gradients: true
+      overlap_comm: true
+      reduce_bucket_size: auto
+      reduce_scatter: true
+      stage: 0
+
+

@@ -152,6 +152,8 @@ class TrainingArguments(TrainingArguments):
         },
     )
     do_train: bool = field(default=True, metadata={"help": "Whether to run training."})
+    export_onnx: bool = field(default=False, metadata={"help": "Whether to run training."})
+    export_path: str = field(default=None, metadata={"help": "Path to export model for serving "})
     negatives_cross_device: bool = field(default=False, metadata={"help": "share negatives across devices"})
     temperature: Optional[float] = field(default=0.02)
     fix_position_embedding: bool = field(default=False, metadata={"help": "Freeze the parameters of position embeddings"})

@@ -10,7 +10,7 @@ def save_ckpt_for_sentence_transformers(ckpt_dir, pooling_mode: str = 'cls', nor
         model = SentenceTransformer(modules=[word_embedding_model, pooling_model, normlize_layer], device='cpu')
     else:
         model = SentenceTransformer(modules=[word_embedding_model, pooling_model], device='cpu')
-    model.save(ckpt_dir)
+    model.save(ckpt_dir,safe_serialization=False)
 
 
 class BiTrainer(Trainer):
