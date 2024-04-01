@@ -25,11 +25,7 @@ if __name__ == "__main__":
         device_map="auto",
         trust_remote_code=True,
     )
-    print("base NODEL")
-    print(base_model)
-    print("base NODEL")
     model = PeftModel.from_pretrained(base_model, args.model_dir, torch_dtype=torch.float16)
-    print(model)
 
     merged_model = model.merge_and_unload()
     merged_model.save_pretrained(args.model_dir)

@@ -24,6 +24,7 @@ class TrainDatasetForEmbedding(Dataset):
         self.total_len = len(self.dataset)
         self.query_instruction = query_instruction
         self.passage_instruction = passage_instruction
+        self.train_group_size = train_group_size
 
     def __len__(self):
         return self.total_len
@@ -39,12 +40,13 @@ class TrainDatasetForEmbedding(Dataset):
         pos = random.choice(self.dataset[item]['pos'])
         passages.append(pos)
 
-        if len(self.dataset[item]['neg']) < train_group_size - 1:
-            num = math.ceil((train_group_size, - 1) / len(self.dataset[item]['neg']))
-            negs = random.sample(self.dataset[item]['neg'] * num, train_group_size, - 1)
-        else:
-            negs = random.sample(self.dataset[item]['neg'], train_group_size, - 1)
-        passages.extend(negs)
+        if "neg" in self.dataset[item]:
+            if len(self.dataset[item]['neg']) < self.train_group_size - 1:
+                num = math.ceil((self.train_group_size, - 1) / len(self.dataset[item]['neg']))
+                negs = random.sample(self.dataset[item]['neg'] * num, self.train_group_size - 1)
+            else:
+                negs = random.sample(self.dataset[item]['neg'], self.train_group_size - 1)
+            passages.extend(negs)
 
         if self.passage_instruction is not None:
             passages = [self.passage_instruction+p for p in passages]

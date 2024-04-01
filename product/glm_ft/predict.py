@@ -12,7 +12,6 @@ def parse_args():
     parser = argparse.ArgumentParser()
     # Model
     parser.add_argument("--device", type=str, default="0", help="")
-    parser.add_argument("--mode", type=str, default="glm3", help="")
     parser.add_argument("--model_path", type=str, default="output_dir/", help="")
     parser.add_argument("--max_length", type=int, default=2048, help="")
     parser.add_argument("--do_sample", type=bool, default=True, help="")
