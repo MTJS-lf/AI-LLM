@@ -4,24 +4,30 @@ import sys
 import yaml
 from copy import deepcopy
 from pathlib import Path
+import numpy as np
+from seqeval.metrics import accuracy_score, classification_report
 
+import transformers
 from transformers import AutoConfig, AutoTokenizer
 from transformers import (
     HfArgumentParser,
     set_seed,
+    default_data_collator,
 )
 
 sys.path.append('..')
 sys.path.append('../../')
-from src.trainer.trainer import BiTrainer
-from src.models.SentenceModel.encode_model import BiEncoderModel
-from src.datasets.encode_dataset import *
+from src.trainer.trainer import NerTrainer, BaseTrainer
+from src.models.Seq2Seq.modeling import TransformerNerModel
+from src.datasets.ner_dataset import TrainDatasetForNer
 from src.utils.arguments import ModelArguments, DataArguments, TrainingArguments
 from src.utils.util import model_exporter
-from src.export_model.sentence_model import TextTransformerEncoder
+from src.export_model.transformer_seq_cls_model import TransformerSequenceClassificationModel
+from src.export_model.base_export_model import BaseExportModel
 
 logger = logging.getLogger(__name__)
 
+transformers.logging.set_verbosity_error()
 
 def main():
     config_path = "conf.yml"
@@ -32,6 +38,7 @@ def main():
     training_args = TrainingArguments(
         **train_args,
     )
+    print(training_args)
     model_conf = deepcopy(conf["model_args"])
     model_args = ModelArguments(
         **model_conf,
@@ -78,20 +85,19 @@ def main():
         cache_dir=model_args.cache_dir,
         use_fast=False,
     )
-    config = AutoConfig.from_pretrained(
-        model_args.config_name if model_args.config_name else model_args.model_name_or_path,
-        num_labels=num_labels,
-        cache_dir=model_args.cache_dir,
-    )
-    logger.info('Config: %s', config)
 
-    model = BiEncoderModel(model_name=model_args.model_name_or_path,
-                           normlized=training_args.normlized,
-                           sentence_pooling_method=training_args.sentence_pooling_method,
-                           negatives_cross_device=training_args.negatives_cross_device,
-                           temperature=training_args.temperature,
-                           use_inbatch_neg=training_args.use_inbatch_neg,
-                           )
+    train_dataset = TrainDatasetForNer(data_args.train_path, tokenizer=tokenizer, data_type="train")
+    eval_dataset = TrainDatasetForNer(data_args.eval_path, tokenizer=tokenizer, data_type="test")
+    id2label = train_dataset.id2label
+    print(id2label, len(id2label))
+
+    num_labels = len(id2label)
+    model = TransformerNerModel(model_name=model_args.model_name_or_path,
+                                use_lstm=model_args.use_lstm, 
+                                use_crf=model_args.use_crf, 
+                                num_labels=num_labels,
+                                max_seq_len=model_args.model_max_length)
+    print(model)
 
     if training_args.fix_position_embedding:
         for k, v in model.named_parameters():
@@ -99,19 +105,48 @@ def main():
                 logging.info(f"Freeze the parameters for {k}")
                 v.requires_grad = False
 
-    train_dataset = TrainDatasetForEmbedding(data_args.train_path, data_args.train_group_size, tokenizer=tokenizer)
-    eval_dataset = TrainDatasetForEmbedding(data_args.eval_path, data_args.train_group_size, tokenizer=tokenizer)
+    def compute_ner_metrics(p):
+        predictions, labels = p
+        print(predictions.shape, labels.shape)
+        bs, seq_len = labels.shape 
+        predictions = predictions.reshape((bs, seq_len)) 
+        #predictions = np.argmax(predictions, axis=2)
+        # Remove ignored index (special tokens)
+        true_predictions = [
+            [id2label[p] for (p, l) in zip(prediction, label) if l != -100]
+            for prediction, label in zip(predictions, labels)
+        ]
+        true_labels = [
+            [id2label[l] for (p, l) in zip(prediction, label) if l != -100]
+            for prediction, label in zip(predictions, labels)
+        ]
+       
+        report = classification_report(true_labels, true_predictions, output_dict=True) 
+        
+        report.pop('weighted avg')
+        macro_score = report.pop('macro avg')
+        micro_score = report.pop('micro avg')
+    
+        scores = {}
+        scores["precision"] = micro_score['precision']
+        scores["recall"] = micro_score['recall']
+        scores["f1"] = micro_score['f1-score']
+        scores["accuracy"] = accuracy_score(y_true=true_labels, y_pred=true_predictions)
+        for tp, tp_score in report.items():
+            scores[tp] = {}
+            scores[tp]["precision"] = round(tp_score['precision'], 4)
+            scores[tp]["recall"] = round(tp_score['recall'], 4)
+            scores[tp]["f1"] = round(tp_score['f1-score'], 4)
+            scores[tp]['support'] = tp_score['support']
+        return scores
 
-    trainer = BiTrainer(
+    trainer = NerTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
-        data_collator=EmbedCollator(
-            tokenizer,
-            query_max_len=data_args.query_max_len,
-            passage_max_len=data_args.passage_max_len
-        ),
+        data_collator=default_data_collator,
+        compute_metrics=compute_ner_metrics,        
         tokenizer=tokenizer
     )
 
@@ -126,7 +161,7 @@ def main():
         tokenizer.save_pretrained(training_args.output_dir)
 
     if training_args.export_onnx:
-        export_model = TextTransformerEncoder(training_args.output_dir)
+        export_model = BaseExportModel(model, model_args.model_name_or_path, max_seq_len=128)
         onnx_inputs, onnx_outputs = model_exporter(export_model, training_args.export_path)
         print('onnx inputs', onnx_inputs)
         print('onnx outputs', onnx_outputs)    

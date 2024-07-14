@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import json
+import codecs
 import argparse
 
 def process_chat(content):
@@ -24,6 +25,9 @@ def process_chat(content):
 
 def process_encode(content):
     content_json = json.loads(content)
+    jd = json.dumps(content_json, ensure_ascii=False)
+    print(jd)
+    print(content_json["query"])
     #system_message = {"role": "system", "content": content_json.get("instruction", "")}
     instruction = content_json.get("instruction", "")
     query = instruction
@@ -48,10 +52,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     if args.type == "emb":
         fw = open(args.output_path, 'w', encoding='utf-8') 
-        with open(args.input_file , 'r') as fp:
+        with codecs.open(args.input_file , 'r') as fp:
             for line in fp:
                 message = process_encode(line)
-                print(message)
+                break
+                #print(message)
                 fw.write(json.dumps(message, ensure_ascii=False))
                 fw.write("\n")
         fw.close()

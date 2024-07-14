@@ -1,6 +1,3 @@
-#
-# Copyright 2022 DMetaSoul
-# 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -45,13 +42,15 @@ def validate_onnx_model(model, onnx_path, dummy=None, device='cpu', print_model=
     with torch.no_grad():
         tensor_inputs = model.get_dummy_inputs(dummy=dummy, batch_size=1, return_tensors="pt", device=device)
         torch_outs = model(**tensor_inputs)
+        print(torch_outs)
         torch_out_keys = set(torch_outs.keys())
 
     print("Validating ONNX model...")
     ort_inputs = {k:tensor_inputs[k].cpu().numpy() for k in input_names}
     ort_out_keys = set(output_names)
+    print(ort_inputs)
     ort_outs = ort_session.run(output_names, ort_inputs)
-    #ort_outs = ort_session.run(None, ort_inputs)
+    print("ort_outs", ort_outs)
     if not ort_out_keys.issubset(torch_out_keys):
         print(f"\t-[x] ONNX model output names {ort_out_keys} do not match reference model {ort_out_keys}")
         raise ValueError("Model validation failed!")
@@ -61,6 +60,8 @@ def validate_onnx_model(model, onnx_path, dummy=None, device='cpu', print_model=
     for name, ort_value in zip(output_names, ort_outs):
         print(f'\t- Validating ONNX Model output "{name}":')
         ref_value = torch_outs[name].numpy()
+        print(ref_value)
+        print(ort_value)
 
         if not ort_value.shape == ref_value.shape:
             print(f"\t\t-[x] shape {ort_value.shape} doesn't match {ref_value.shape}")
@@ -83,11 +84,13 @@ def onnx_export(model, onnx_path, dummy=None, device='cpu', onnx_version=11):
 
     with torch.no_grad():
         model_inputs = model.get_dummy_inputs(dummy=dummy, device=device)
+        #print(model_inputs)
         assert isinstance(model_inputs, dict), "The model dummy inputs must be a dict!"
 
         dynamic_axes = {}
         dynamic_axes.update(model.input_axes)
         dynamic_axes.update(model.output_axes)
+        print(model.input_names)
 
         torch.onnx.export(model,
             args=(model_inputs,),  # https://pytorch.org/docs/stable/onnx.html#torch.onnx.export
@@ -95,7 +98,7 @@ def onnx_export(model, onnx_path, dummy=None, device='cpu', onnx_version=11):
             input_names=model.input_names,
             output_names=model.output_names,
             dynamic_axes=dynamic_axes,
-            #verbose=True,
+            verbose=False,
             do_constant_folding=True,  # whether to execute constant folding for optimization
             export_params=True,        # store the trained parameter weights inside the model file
             opset_version=onnx_version
@@ -129,7 +132,8 @@ def model_exporter(model, export_path,
     onnx_export(model, onnx_path, dummy=dummy, device=device, onnx_version=onnx_version)
 
     if validate:
-        validate_onnx_model(model, onnx_path, print_model=True, device=device)
+        validate_onnx_model(model, onnx_path, print_model=False, device=device)
 
 
     return model.input_names, model.output_names
+

@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List
 
 from transformers import TrainingArguments
 from transformers.utils import add_start_docstrings
@@ -38,6 +38,11 @@ class ModelArguments:
     use_flash_attention: bool = field(
         default=False, metadata={"help": ("Whether to use memory efficient attention.")}
     )
+    model_outputs: Optional[List[str]] = field(default=None, metadata={"help": "The list of keys for model output"})
+    use_lstm: bool = field(default=False, metadata={"help": ("Whether to use lstm layer for ner model.")})
+    use_crf: bool = field(default=False, metadata={"help": ("Whether to use crf layer for ner model.")})
+    model_max_length: int = field(default=128, metadata={"help": "model max length for text"})
+    query_max_length: int = field(default=64, metadata={"help": "query max length for relevance model"})
 
 
 @dataclass
@@ -96,14 +101,11 @@ class DataArguments:
     drop_threshold: int = field(
             default=0, metadata={"help": "The threshold for dropping merged small dataset. If the number of examples in the merged small dataset is less than this threshold, it will be dropped."}
     )
+    data_type: str = field(default="json", metadata={"help": "input data file type"})
 
 @dataclass
 @add_start_docstrings(TrainingArguments.__doc__)
 class TrainingArguments(TrainingArguments):
-    model_max_length: int = field(
-        default=512,
-        metadata={"help": "Maximum sequence length."},
-    )
     use_lora: bool = field(default=False, metadata={"help": "Whether to use LoRA."})
     use_int8_training: bool = field(
         default=False, metadata={"help": "Whether to use int8 training."}
@@ -160,3 +162,5 @@ class TrainingArguments(TrainingArguments):
     sentence_pooling_method: str = field(default='cls', metadata={"help": "the pooling method, should be cls or mean"})
     normlized: bool = field(default=True)
     use_inbatch_neg: bool = field(default=True, metadata={"help": "use passages in the same batch as negatives"})
+    add_dense_layer: bool = field(default=False, metadata={"help": "encode model add dense layer"})
+    embedding_dim: int = field(default=128,metadata={"help": "if save_dense is True, should set embedding dim"})

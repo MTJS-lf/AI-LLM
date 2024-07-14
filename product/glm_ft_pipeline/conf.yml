@@ -1,0 +1,36 @@
+task_name: general
+model_name: glm 
+model_args:
+  model_name_or_path: /mnt/data1/AIModel/ZhipuAI/chatglm3-6b-32k
+  model_type: glm3
+  torch_dtype: bfloat16
+  cache_dir: None 
+
+data_args:
+  train_path: /mnt/data1/Data/SFT/firefly/train
+  eval_path: /mnt/data1/Data/SFT/firefly/test
+
+max_length: 1024
+
+train_args:
+  seed: 1234
+  evaluation_strategy: "steps"
+  num_train_epochs: 1
+  save_total_limit: 2
+  logging_steps: 10
+  eval_steps: 20
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 2
+  per_device_eval_batch_size: 1
+  learning_rate: 8.0e-06
+  weight_decay: 0.001
+  warmup_ratio: 0.05
+  lr_scheduler_type: "cosine"
+  report_to: tensorboard
+  bf16: true
+  gradient_checkpointing: true
+  output_dir: models
+  overwrite_output_dir: true
+  deepspeed: deepspeed_config.json
+  lora_config: glm_lora_config.json
+  use_lora: true

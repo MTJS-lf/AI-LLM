@@ -5,6 +5,10 @@ import math
 import logging
 import json
 import sys
+import yaml
+from copy import deepcopy
+from pathlib import Path
+
 import transformers
 import torch
 from packaging import version
@@ -24,12 +28,12 @@ from transformers import (
     TrainingArguments,
     set_seed,
 )
-from peft import LoraConfig, get_peft_model, prepare_model_for_int8_training
+from peft import LoraConfig, get_peft_model
 from datasets import load_dataset
 
 sys.path.append('../../')
-from src.models.chatglm3.modeling_chatglm import ChatGLMForConditionalGeneration
-from src.datasets.chat_dataset import SupervisedChatDataset
+from src.models.Chatglm3.modeling_chatglm import ChatGLMForConditionalGeneration
+from src.datasets.chat_dataset import GLM3ChatDataset
 from src.utils.arguments import ModelArguments, DataArguments, TrainingArguments
 
 from transformers import Trainer
@@ -44,8 +48,22 @@ def print_rank_0(msg, log_file, rank=0):
 
 
 def main():
-    parser = HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
-    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+    config_path = "conf.yml"
+    with open(config_path, "r", encoding="utf8") as fc:
+        conf = yaml.safe_load(fc)
+    
+    train_args = deepcopy(conf["train_args"])  
+    training_args = TrainingArguments(
+        **train_args,
+    )
+    model_conf = deepcopy(conf["model_args"])
+    model_args = ModelArguments(
+        **model_conf,
+    )
+    data_conf = deepcopy(conf["data_args"])
+    data_args = DataArguments(
+        **data_conf,
+    )
 
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     global_rank = torch.distributed.get_rank()
@@ -117,6 +135,7 @@ def main():
             load_in_8bit=True,  # xxx: int8 load in
             device_map=device_map,  # xxx: int8 requires passing device_map
             torch_dtype=torch_dtype,
+            trust_remote_code=True
         )
     else:
         if model_args.model_type == "glm3":
@@ -130,10 +149,10 @@ def main():
             model = AutoModelForCausalLM.from_pretrained(
                 model_args.model_name_or_path,
                 torch_dtype=torch_dtype,
+                trust_remote_code=True,
             )
 
     tokenizer = AutoTokenizer.from_pretrained(model_args.model_name_or_path, trust_remote_code=True)
-        #tokenizer.add_special_tokens({"pad_token": tokenizer.unk_token})
     tokenizer.padding_side = "left"  # Allow batched inference
 
     print_rank_0(
@@ -199,8 +218,8 @@ def main():
     assert os.path.exists(data_args.train_path), "{} file not exists".format(data_args.train_path)
 
     with torch_distributed_zero_first(global_rank):
-        train_data = SupervisedChatDataset(data_args.train_path, tokenizer)
-        val_data = SupervisedChatDataset(data_args.eval_path, tokenizer)
+        train_data = GLM3ChatDataset(data_args.train_path, tokenizer)
+        val_data = GLM3ChatDataset(data_args.eval_path, tokenizer, data_type="test")
 
     for i in range(2):
         print_rank_0(
@@ -316,3 +335,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -1239,6 +1239,7 @@ class ChatGLMForSequenceClassification(ChatGLMPreTrainedModel):
             use_cache: Optional[bool] = None,
             output_hidden_states: Optional[bool] = None,
             return_dict: Optional[bool] = None,
+            **kwargs,
     ) -> Union[Tuple[torch.Tensor, ...], SequenceClassifierOutputWithPast]:
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
 
@@ -1282,6 +1283,7 @@ class ChatGLMForSequenceClassification(ChatGLMPreTrainedModel):
             elif self.config.problem_type == "multi_label_classification":
                 loss_fct = BCEWithLogitsLoss()
                 loss = loss_fct(logits.float(), labels.view(-1, self.num_labels))
+        print("loss = ", loss)
 
         if not return_dict:
             output = (logits,) + transformer_outputs[1:]

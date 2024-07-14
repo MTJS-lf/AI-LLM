@@ -1,0 +1,37 @@
+task_name: general
+model_name: bge
+model_args:
+  model_name_or_path: /mnt/data1/AIModel/chinese-roberta-wwm-ext/
+  model_type: None
+  torch_dtype: float32
+  cache_dir: None 
+  model_max_length: 64
+  query_max_length: 20
+
+data_args:
+  train_path: ../../data/sts_data/train
+  eval_path: ../../data/sts_data/test
+
+train_args:
+  seed: 1234
+  evaluation_strategy: "steps"
+  num_train_epochs: 1
+  save_total_limit: 2
+  logging_steps: 2
+  max_steps: 10
+  eval_steps: 1000
+  per_device_train_batch_size: 10
+  gradient_accumulation_steps: 1
+  per_device_eval_batch_size: 5
+  learning_rate: 8.0e-05
+  weight_decay: 0.00001
+  warmup_ratio: 0.05
+  lr_scheduler_type: "cosine"
+  report_to: tensorboard
+  bf16: true
+  gradient_checkpointing: true
+  output_dir: models
+  overwrite_output_dir: true
+  export_onnx: true
+  export_path: model_onnx
+  save_safetensors: false

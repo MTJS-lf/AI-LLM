@@ -39,9 +39,7 @@ class TextTransformerEncoder(nn.Sequential):
         self._do_lower_case = sbert._first_module().do_lower_case
         self._tokenizer = sbert.tokenizer
         self._input_names = self._tokenizer.model_input_names
-        #self._tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
         self._base_config = AutoConfig.from_pretrained(model_name_or_path)
-        #self._base_model = AutoModel.from_pretrained(model_name_or_path)
 
     @property
     def max_seq_len(self):
